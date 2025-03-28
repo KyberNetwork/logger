@@ -6,12 +6,13 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type zapLogger struct {
-	sugaredLogger *zap.SugaredLogger
-	atomicLevel   *zap.AtomicLevel
+	sugaredLogger           *zap.SugaredLogger
+	atomicLevel             *zap.AtomicLevel
+	withFieldsCallerSkipped bool
 }
 
 func getEncoder(isJSON bool) zapcore.Encoder {
@@ -70,8 +71,8 @@ func newZapLogger(config Configuration) (*zapLogger, error) {
 	// AddCallerSkip skips 2 number of callers, this is important else the file that gets
 	// logged will always be the wrapped file. In our case zap.go
 	logger := zap.New(combinedCore,
-		zap.AddCallerSkip(2),
 		zap.AddCaller(),
+		zap.AddCallerSkip(2),
 	).Sugar()
 	return &zapLogger{
 		sugaredLogger: logger,
@@ -124,13 +125,18 @@ func (l *zapLogger) Fatal(msg string) {
 }
 
 func (l *zapLogger) WithFields(fields Fields) Logger {
-	var fds = make([]interface{}, 0, len(fields)*2)
+	zapFields := make([]zap.Field, 0, len(fields))
 	for k, v := range fields {
-		fds = append(fds, k)
-		fds = append(fds, v)
+		zapFields = append(zapFields, zap.Any(k, v))
 	}
-	newLogger := l.sugaredLogger.With(fds...)
-	return &zapLogger{newLogger, l.atomicLevel}
+	cloned := *l
+	if l.withFieldsCallerSkipped {
+		cloned.sugaredLogger = l.sugaredLogger.WithOptions(zap.Fields(zapFields...))
+	} else {
+		cloned.sugaredLogger = l.sugaredLogger.WithOptions(zap.Fields(zapFields...), zap.AddCallerSkip(-1))
+		cloned.withFieldsCallerSkipped = true
+	}
+	return &cloned
 }
 
 func (l *zapLogger) GetDelegate() interface{} {
