@@ -161,6 +161,10 @@ func WithFields(keyValues Fields) Logger {
 	return log.WithFields(keyValues)
 }
 
+func Get() Logger {
+	return log
+}
+
 func GetDelegate() interface{} {
 	return log.GetDelegate()
 }
