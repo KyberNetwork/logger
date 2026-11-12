@@ -59,18 +59,30 @@ func TestConfigDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := settings{backend: BackendSlog, level: slog.LevelInfo, format: FormatJSON, addCaller: true, console: ConsoleStdout}
+	want := settings{
+		backend:   BackendSlog,
+		level:     slog.LevelInfo,
+		format:    FormatJSON,
+		addCaller: true,
+		console:   ConsoleStdout,
+	}
 	if s != want {
 		t.Errorf("settings = %+v, want %+v", s, want)
 	}
 }
 
 func TestConfigCaseInsensitive(t *testing.T) {
-	s, err := Config{Backend: " Zap", Level: "WARNING", Format: "TEXT", Console: "Stderr"}.settings()
+	s, err := Config{
+		Backend: " Zap",
+		Level:   "WARNING",
+		Format:  "TEXT",
+		Console: "Stderr",
+	}.settings()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.backend != BackendZap || s.level != slog.LevelWarn || s.format != FormatText || s.console != ConsoleStderr {
+	if s.backend != BackendZap || s.level != slog.LevelWarn || s.format != FormatText ||
+		s.console != ConsoleStderr {
 		t.Errorf("settings = %+v", s)
 	}
 }
@@ -112,7 +124,13 @@ func TestConfigUnmarshal(t *testing.T) {
 		Format:        FormatText,
 		DisableCaller: true,
 		Console:       ConsoleStderr,
-		File:          FileConfig{Path: "/var/log/app.log", MaxSizeMB: 50, MaxAgeDays: 7, MaxBackups: 3, Compress: true},
+		File: FileConfig{
+			Path:       "/var/log/app.log",
+			MaxSizeMB:  50,
+			MaxAgeDays: 7,
+			MaxBackups: 3,
+			Compress:   true,
+		},
 	}
 	if got != want {
 		t.Errorf("got %+v\nwant %+v", got, want)

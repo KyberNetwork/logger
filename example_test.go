@@ -36,7 +36,9 @@ func ExampleNew() {
 // A Config can be loaded from a file or environment with any library that
 // understands json, yaml or mapstructure tags.
 func ExampleConfig() {
-	data := []byte(`{"backend": "zerolog", "level": "warn", "file": {"path": "app.log", "max_age_days": 7}}`)
+	data := []byte(
+		`{"backend": "zerolog", "level": "warn", "file": {"path": "app.log", "max_age_days": 7}}`,
+	)
 
 	var cfg logger.Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
@@ -83,7 +85,10 @@ func ExampleWithMiddleware() {
 			return id, ok
 		}}
 	}
-	l, err := logger.New(logger.Config{Backend: logger.BackendZerolog}, logger.WithMiddleware(traceID))
+	l, err := logger.New(
+		logger.Config{Backend: logger.BackendZerolog},
+		logger.WithMiddleware(traceID),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

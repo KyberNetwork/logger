@@ -68,7 +68,8 @@ var conformanceCases = []struct {
 	{
 		name: "scalars",
 		log: func(ctx context.Context, l *slog.Logger) {
-			l.InfoContext(ctx, "m", "s", "x", "i", math.MinInt64, "u", uint64(math.MaxUint64), "f", 1.5, "b", true)
+			l.InfoContext(ctx, "m",
+				"s", "x", "i", math.MinInt64, "u", uint64(math.MaxUint64), "f", 1.5, "b", true)
 		},
 		want: `{"level":"info","msg":"m","s":"x","i":-9223372036854775808,"u":18446744073709551615,"f":1.5,"b":true}`,
 	},
@@ -89,7 +90,8 @@ var conformanceCases = []struct {
 	{
 		name: "durations and times",
 		log: func(ctx context.Context, l *slog.Logger) {
-			l.InfoContext(ctx, "m", "d", 1500*time.Millisecond, "t", fixedTime, slog.Group("g", "d", time.Minute))
+			l.InfoContext(ctx, "m",
+				"d", 1500*time.Millisecond, "t", fixedTime, slog.Group("g", "d", time.Minute))
 		},
 		want: `{"level":"info","msg":"m","d":"1.5s","t":"` + fixedTimeJSON + `","g":{"d":"1m0s"}}`,
 	},
@@ -123,7 +125,8 @@ var conformanceCases = []struct {
 	{
 		name: "marshal failures",
 		log: func(ctx context.Context, l *slog.Logger) {
-			l.InfoContext(ctx, "m", "failing", failingMarshaler{}, "panicking", panickingMarshaler{})
+			l.InfoContext(ctx, "m",
+				"failing", failingMarshaler{}, "panicking", panickingMarshaler{})
 		},
 		want: `{"level":"info","msg":"m",` +
 			`"failing":"!ERROR:json: error calling MarshalJSON for type *logger.failingMarshaler: nope",` +
@@ -132,7 +135,8 @@ var conformanceCases = []struct {
 	{
 		name: "log valuers",
 		log: func(ctx context.Context, l *slog.Logger) {
-			l.With("owner", user{"u1"}).InfoContext(ctx, "m", "user", user{"u2"}, "empty", emptyValuer{})
+			l.With("owner", user{"u1"}).
+				InfoContext(ctx, "m", "user", user{"u2"}, "empty", emptyValuer{})
 		},
 		want: `{"level":"info","msg":"m","owner":{"id":"u1","n":2},"user":{"id":"u2","n":2}}`,
 	},
@@ -192,14 +196,20 @@ var conformanceCases = []struct {
 	{
 		name: "with group and with empty groups",
 		log: func(ctx context.Context, l *slog.Logger) {
-			l.With("a", 1).WithGroup("g").With(slog.Group("x", slog.Attr{}), slog.Group("y", "e", emptyValuer{})).InfoContext(ctx, "m")
+			l.With("a", 1).
+				WithGroup("g").
+				With(slog.Group("x", slog.Attr{}), slog.Group("y", "e", emptyValuer{})).
+				InfoContext(ctx, "m")
 		},
 		want: `{"level":"info","msg":"m","a":1}`,
 	},
 	{
 		name: "with empty groups before with group",
 		log: func(ctx context.Context, l *slog.Logger) {
-			l.With(slog.Group("x", slog.Attr{})).WithGroup("g").With("b", 2).InfoContext(ctx, "m", slog.Group("y", "e", emptyValuer{}))
+			l.With(slog.Group("x", slog.Attr{})).
+				WithGroup("g").
+				With("b", 2).
+				InfoContext(ctx, "m", slog.Group("y", "e", emptyValuer{}))
 		},
 		want: `{"level":"info","msg":"m","g":{"b":2}}`,
 	},
@@ -275,7 +285,8 @@ func TestJSONNoHTMLEscaping(t *testing.T) {
 	for _, b := range backends {
 		t.Run(string(b), func(t *testing.T) {
 			l, buf := newTestLogger(t, b)
-			l.Info("<a&b>", "s", "<a&b>", "any", map[string]string{"k": "<a&b>"}, "err", errors.New("<a&b>"))
+			l.Info("<a&b>",
+				"s", "<a&b>", "any", map[string]string{"k": "<a&b>"}, "err", errors.New("<a&b>"))
 			if got := strings.Count(buf.String(), "<a&b>"); got != 4 {
 				t.Errorf("found %d unescaped values, want 4:\n%s", got, buf)
 			}
@@ -311,7 +322,9 @@ type mapHandler struct {
 	f    func(slog.Record) slog.Record
 }
 
-func (h mapHandler) Enabled(ctx context.Context, l slog.Level) bool { return h.next.Enabled(ctx, l) }
+func (h mapHandler) Enabled(ctx context.Context, l slog.Level) bool {
+	return h.next.Enabled(ctx, l)
+}
 
 func (h mapHandler) Handle(ctx context.Context, r slog.Record) error {
 	return h.next.Handle(ctx, h.f(r))

@@ -58,7 +58,13 @@ func (h *zapHandler) Handle(_ context.Context, r slog.Record) error {
 	}
 	if h.addCaller && r.PC != 0 {
 		f, _ := runtime.CallersFrames([]uintptr{r.PC}).Next()
-		ent.Caller = zapcore.EntryCaller{Defined: true, PC: f.PC, File: f.File, Line: f.Line, Function: f.Function}
+		ent.Caller = zapcore.EntryCaller{
+			Defined:  true,
+			PC:       f.PC,
+			File:     f.File,
+			Line:     f.Line,
+			Function: f.Function,
+		}
 	}
 	attrs := recordAttrs(r)
 	var fields []zapcore.Field

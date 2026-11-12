@@ -106,7 +106,10 @@ func (c Config) settings() (settings, error) {
 	switch s.backend {
 	case BackendSlog, BackendZap, BackendZerolog:
 	default:
-		errs = append(errs, fmt.Errorf("logger: unknown backend %q (want slog, zap or zerolog)", c.Backend))
+		errs = append(
+			errs,
+			fmt.Errorf("logger: unknown backend %q (want slog, zap or zerolog)", c.Backend),
+		)
 	}
 	switch s.format {
 	case FormatJSON, FormatText:
@@ -116,7 +119,10 @@ func (c Config) settings() (settings, error) {
 	switch s.console {
 	case ConsoleStdout, ConsoleStderr, ConsoleNone:
 	default:
-		errs = append(errs, fmt.Errorf("logger: unknown console %q (want stdout, stderr or none)", c.Console))
+		errs = append(
+			errs,
+			fmt.Errorf("logger: unknown console %q (want stdout, stderr or none)", c.Console),
+		)
 	}
 	if strings.TrimSpace(c.Level) == "" {
 		s.level = slog.LevelInfo

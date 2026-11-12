@@ -82,7 +82,8 @@ func decode(t *testing.T, line string) map[string]any {
 func newTestLogger(t *testing.T, b Backend, opts ...Option) (*Logger, *buffer) {
 	t.Helper()
 	var buf buffer
-	l, err := New(Config{Backend: b, Level: "debug"}, append([]Option{WithWriter(&buf)}, opts...)...)
+	opts = append([]Option{WithWriter(&buf)}, opts...)
+	l, err := New(Config{Backend: b, Level: "debug"}, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

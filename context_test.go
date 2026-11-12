@@ -42,7 +42,8 @@ func TestContextWithNoArgs(t *testing.T) {
 }
 
 func TestContextAttrsNilContext(t *testing.T) {
-	if attrs := contextAttrs(nil); attrs != nil { //nolint:staticcheck // a nil context must be tolerated
+	var ctx context.Context // nil, which must be tolerated
+	if attrs := contextAttrs(ctx); attrs != nil {
 		t.Errorf("contextAttrs(nil) = %v", attrs)
 	}
 }
@@ -51,10 +52,12 @@ func TestContextAttrsNilContext(t *testing.T) {
 // record does not change the record seen by other handlers.
 func TestContextAttrsNotShared(t *testing.T) {
 	var seen []int
-	h := contextHandler{next: mapHandler{next: slog.DiscardHandler, f: func(r slog.Record) slog.Record {
-		seen = append(seen, r.NumAttrs())
-		return r
-	}}}
+	h := contextHandler{
+		next: mapHandler{next: slog.DiscardHandler, f: func(r slog.Record) slog.Record {
+			seen = append(seen, r.NumAttrs())
+			return r
+		}},
+	}
 	r := slog.NewRecord(fixedTime, slog.LevelInfo, "m", 0)
 	r.AddAttrs(slog.Int("a", 1))
 	ctx := ContextWith(context.Background(), "b", 2)

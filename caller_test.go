@@ -25,10 +25,16 @@ var callPaths = []struct {
 	{"Info", func(_ *testing.T, l *slog.Logger) { l.Info(here()) }},
 	{"InfoContext", func(t *testing.T, l *slog.Logger) { l.InfoContext(t.Context(), here()) }},
 	{"Log", func(t *testing.T, l *slog.Logger) { l.Log(t.Context(), slog.LevelWarn, here()) }},
-	{"LogAttrs", func(t *testing.T, l *slog.Logger) { l.LogAttrs(t.Context(), slog.LevelError, here()) }},
+	{
+		"LogAttrs",
+		func(t *testing.T, l *slog.Logger) { l.LogAttrs(t.Context(), slog.LevelError, here()) },
+	},
 	{"With", func(_ *testing.T, l *slog.Logger) { l.With("a", 1).Info(here()) }},
 	{"WithGroup", func(_ *testing.T, l *slog.Logger) { l.WithGroup("g").Info(here(), "a", 1) }},
-	{"ContextWith", func(t *testing.T, l *slog.Logger) { l.InfoContext(ContextWith(t.Context(), "a", 1), here()) }},
+	{
+		"ContextWith",
+		func(t *testing.T, l *slog.Logger) { l.InfoContext(ContextWith(t.Context(), "a", 1), here()) },
+	},
 	{"slog.Info", func(t *testing.T, l *slog.Logger) {
 		setDefault(t, l, log.LstdFlags)
 		slog.Info(here())

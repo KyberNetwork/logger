@@ -191,7 +191,12 @@ func TestMiddleware(t *testing.T) {
 			}}
 		}
 	}
-	l, buf := newTestLogger(t, BackendSlog, WithMiddleware(record("first"), record("second")), WithMiddleware(record("third")))
+	l, buf := newTestLogger(
+		t,
+		BackendSlog,
+		WithMiddleware(record("first"), record("second")),
+		WithMiddleware(record("third")),
+	)
 	l.InfoContext(ContextWith(t.Context(), "request_id", "r1"), "m", "a", 1)
 
 	if got := strings.Join(calls, ","); got != "first,second,third" {
@@ -204,7 +209,14 @@ func TestMiddleware(t *testing.T) {
 
 func TestNilOptions(t *testing.T) {
 	var buf buffer
-	l, err := New(Config{}, nil, WithWriter(&buf), WithWriter(nil), WithMiddleware(), WithMiddleware(nil))
+	l, err := New(
+		Config{},
+		nil,
+		WithWriter(&buf),
+		WithWriter(nil),
+		WithMiddleware(),
+		WithMiddleware(nil),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
