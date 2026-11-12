@@ -322,6 +322,10 @@ directly with `go tool -modfile=tools.mod <name>`. They live in `tools.mod`
 rather than `go.mod` so that modules importing this one don't inherit their
 dependencies.
 
+golines splits a long call one argument per line, which separates slog
+key/value pairs. Wrap long logging calls by hand to 100 columns, keeping each
+pair together; golines leaves lines that fit alone.
+
 golangci-lint is pinned to v2.15.0, the version CI runs, and gofumpt and golines
 to the versions it embeds, so local formatting matches CI's check. When
 upgrading golangci-lint, change `tools.mod` and `.github/workflows/ci.yaml`
