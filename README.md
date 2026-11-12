@@ -307,13 +307,22 @@ logging.UnaryServerInterceptor(logging.LoggerFunc(
 ## Development
 
 ```sh
-make fmt    # format with gofumpt
+make fmt    # format with gofumpt, then golines
 make lint   # lint and check formatting, as CI does
 make test   # run the tests with the race detector, as CI does
 make bench  # run the benchmarks
 ```
 
 Code is formatted with [gofumpt](https://github.com/mvdan/gofumpt), a stricter
-gofmt. `make fmt` and `make lint` run it through
-[golangci-lint](https://golangci-lint.run/welcome/install/) v2.15.0, the version
-CI uses, configured in `.golangci.yml`. No separate gofumpt install is needed.
+gofmt, and [golines](https://github.com/golangci/golines), which wraps lines
+longer than 100 columns. Both, and
+[golangci-lint](https://golangci-lint.run), are Go tools pinned in `tools.mod`,
+so there's nothing to install: `make` builds them on first use, or run one
+directly with `go tool -modfile=tools.mod <name>`. They live in `tools.mod`
+rather than `go.mod` so that modules importing this one don't inherit their
+dependencies.
+
+golangci-lint is pinned to v2.15.0, the version CI runs, and gofumpt and golines
+to the versions it embeds, so local formatting matches CI's check. When
+upgrading golangci-lint, change `tools.mod` and `.github/workflows/ci.yaml`
+together.
