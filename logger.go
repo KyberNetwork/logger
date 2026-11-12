@@ -2,173 +2,182 @@ package logger
 
 import (
 	"errors"
-	"sync"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// A global variable so that log functions can be directly accessed
-var log = DefaultLogger()
+// Logger is a *slog.Logger built by [New], with control over its level and
+// outputs.
+//
+// Pass the embedded *slog.Logger to code that logs, or install it with
+// slog.SetDefault. Only the owner of the Logger, typically main, needs the
+// Logger itself, to change the level or to close the outputs.
+type Logger struct {
+	*slog.Logger
 
-// Fields Type to pass when we want to call WithFields for structured logging
-type Fields map[string]interface{}
-
-// LoggerBackend represents the int enum for backend of logger.
-// nolint:revive
-type LoggerBackend int
-
-const (
-	// Debug has verbose message
-	debugLvl = "debug"
-	// Info is default log level
-	infoLvl = "info"
-	// Warn is for logging messages about possible issues
-	warnLvl = "warn"
-	// Error is for logging errors
-	errorLvl = "error"
-	// Fatal is for logging fatal messages. The system shutdowns after logging the message.
-	fatalLvl = "fatal"
-)
-
-const (
-	// LoggerBackendZap logging using Uber's zap backend
-	LoggerBackendZap LoggerBackend = iota
-	// LoggerBackendLogrus logging using logrus backend
-	LoggerBackendLogrus
-)
-
-var (
-	errInvalidLoggerInstance = errors.New("invalid logger instance")
-
-	once sync.Once
-)
-
-// Logger is our contract for the logger
-type Logger interface {
-	Debug(msg string)
-	Debugf(format string, args ...interface{})
-
-	Info(msg string)
-	Infof(format string, args ...interface{})
-	Infoln(msg string)
-
-	Warn(msg string)
-	Warnf(format string, args ...interface{})
-
-	Error(msg string)
-	Errorf(format string, args ...interface{})
-
-	Fatal(msg string)
-	Fatalf(format string, args ...interface{})
-
-	WithFields(keyValues Fields) Logger
-
-	// extract instance logger.
-	GetDelegate() interface{}
-	SetLogLevel(level string) error
+	level   *slog.LevelVar
+	closers []io.Closer
 }
 
-// Configuration stores the config for the logger
-// For some loggers there can only be one level across writers, for such the level of Console is picked by default
-type Configuration struct {
-	EnableConsole    bool   `mapstructure:"enable_console"`
-	EnableJSONFormat bool   `mapstructure:"enable_json_format"`
-	ConsoleLevel     string `mapstructure:"console_level"`
-	EnableFile       bool
-	FileJSONFormat   bool
-	FileLevel        string
-	FileLocation     string
+// Option customizes a logger built by [New].
+type Option func(*options)
+
+type options struct {
+	writer     io.Writer
+	middleware []Middleware
 }
 
-// DefaultLogger creates default logger, which uses zap sugarLogger and outputs to console
-func DefaultLogger() Logger {
-	cfg := Configuration{
-		EnableConsole:    true,
-		EnableJSONFormat: false,
-		ConsoleLevel:     "warn",
-		EnableFile:       false,
-		FileJSONFormat:   false,
+// Middleware wraps the handler of a logger, to filter, enrich or redirect
+// records whatever the backend. Records reach a middleware with the
+// attributes from [ContextWith] already added.
+type Middleware func(slog.Handler) slog.Handler
+
+// WithWriter sends console output to w instead of the stream selected by
+// [Config].Console. A nil w is ignored. The text format is colored only if w is
+// a terminal.
+func WithWriter(w io.Writer) Option {
+	return func(o *options) {
+		if w != nil {
+			o.writer = w
+		}
 	}
-	logger, _ := newZapLogger(cfg)
-	return logger
 }
 
-// InitLogger returns an instance of logger
-func InitLogger(config Configuration, backend LoggerBackend) (Logger, error) {
-	var err error
-	once.Do(func() {
-		log, err = NewLogger(config, backend)
-	})
-	return log, err
+// WithMiddleware wraps the logger's handler with mw. The first middleware is
+// the outermost, so it sees records first.
+func WithMiddleware(mw ...Middleware) Option {
+	return func(o *options) {
+		o.middleware = append(o.middleware, mw...)
+	}
 }
 
-func NewLogger(config Configuration, backend LoggerBackend) (Logger, error) {
-	switch backend {
-	case LoggerBackendZap:
-		return newZapLogger(config)
+// New builds a logger from cfg. It reports every invalid field of cfg in one
+// error, and fails if the log file can't be opened.
+//
+// New does not change any global state; call slog.SetDefault to make the
+// logger the default.
+func New(cfg Config, opts ...Option) (*Logger, error) {
+	s, err := cfg.settings()
+	if err != nil {
+		return nil, err
+	}
+	var o options
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&o)
+		}
+	}
 
-	case LoggerBackendLogrus:
-		return newLogrusLogger(config)
+	level := new(slog.LevelVar)
+	level.Set(s.level)
+	ho := handlerOptions{level: level, addCaller: s.addCaller}
 
+	var (
+		handlers []slog.Handler
+		closers  []io.Closer
+	)
+	if w := consoleWriter(s.console, o.writer); w != nil {
+		consoleOpts := ho
+		consoleOpts.color = s.format == FormatText && useColor(w)
+		handlers = append(handlers, newHandler(s.backend, w, s.format, consoleOpts))
+	}
+	if s.file.Path != "" {
+		f := &lumberjack.Logger{
+			Filename:   s.file.Path,
+			MaxSize:    s.file.MaxSizeMB,
+			MaxAge:     s.file.MaxAgeDays,
+			MaxBackups: s.file.MaxBackups,
+			Compress:   s.file.Compress,
+		}
+		// lumberjack opens the file on the first write; do it now to report
+		// errors from New rather than lose records later.
+		if _, err := f.Write(nil); err != nil {
+			return nil, fmt.Errorf("logger: open log file: %w", err)
+		}
+		closers = append(closers, f)
+		handlers = append(handlers, newHandler(s.backend, f, s.format, ho))
+	}
+
+	var h slog.Handler
+	switch len(handlers) {
+	case 0:
+		h = slog.DiscardHandler
+	case 1:
+		h = handlers[0]
 	default:
-		return nil, errInvalidLoggerInstance
+		h = slog.NewMultiHandler(handlers...)
+	}
+	for i := len(o.middleware) - 1; i >= 0; i-- {
+		if mw := o.middleware[i]; mw != nil {
+			h = mw(h)
+		}
+	}
+	h = contextHandler{next: h}
+
+	return &Logger{Logger: slog.New(h), level: level, closers: closers}, nil
+}
+
+// Level returns the minimum level logged.
+func (l *Logger) Level() slog.Level {
+	return l.level.Level()
+}
+
+// SetLevel changes the minimum level logged, for every output and every logger
+// derived from l. It is safe to call concurrently with logging.
+func (l *Logger) SetLevel(level slog.Level) {
+	l.level.Set(level)
+}
+
+// Close closes the log file, if any. Call it when the program stops logging,
+// typically deferred in main. Console streams are left open. A record logged
+// after Close reopens the file.
+func (l *Logger) Close() error {
+	errs := make([]error, 0, len(l.closers))
+	for _, c := range l.closers {
+		errs = append(errs, c.Close())
+	}
+	return errors.Join(errs...)
+}
+
+func newHandler(b Backend, w io.Writer, f Format, o handlerOptions) slog.Handler {
+	switch b {
+	case BackendZap:
+		return newZapHandler(w, f, o)
+	case BackendZerolog:
+		return newZerologHandler(w, f, o)
+	default:
+		return newSlogHandler(w, f, o)
 	}
 }
 
-func Debug(msg string) {
-	log.Debug(msg)
+func consoleWriter(c Console, override io.Writer) io.Writer {
+	if override != nil {
+		return override
+	}
+	switch c {
+	case ConsoleStderr:
+		return os.Stderr
+	case ConsoleNone:
+		return nil
+	default:
+		return os.Stdout
+	}
 }
 
-func Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
-}
-
-func Info(msg string) {
-	log.Info(msg)
-}
-
-func Infof(format string, args ...interface{}) {
-	log.Infof(format, args...)
-}
-
-func Infoln(msg string) {
-	log.Infoln(msg)
-}
-
-func Warn(msg string) {
-	log.Warn(msg)
-}
-
-func Warnf(format string, args ...interface{}) {
-	log.Warnf(format, args...)
-}
-
-func Error(msg string) {
-	log.Error(msg)
-}
-
-func Errorf(format string, args ...interface{}) {
-	log.Errorf(format, args...)
-}
-
-func Fatal(msg string) {
-	log.Fatal(msg)
-}
-
-func Fatalf(format string, args ...interface{}) {
-	log.Fatalf(format, args...)
-}
-
-func WithFields(keyValues Fields) Logger {
-	return log.WithFields(keyValues)
-}
-
-func Get() Logger {
-	return log
-}
-
-func GetDelegate() interface{} {
-	return log.GetDelegate()
-}
-
-func SetLogLevel(level string) error {
-	return log.SetLogLevel(level)
+// useColor reports whether text written to w should be colored: w is a
+// terminal and the NO_COLOR convention (https://no-color.org) is not in use.
+func useColor(w io.Writer) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
