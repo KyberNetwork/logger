@@ -307,7 +307,13 @@ logging.UnaryServerInterceptor(logging.LoggerFunc(
 ## Development
 
 ```sh
-go test -race -vet=off ./...     # what CI runs
-golangci-lint run --timeout=10m  # CI uses v2.15.0 with the default linters
-go test -run '^$' -bench .       # benchmarks
+make fmt    # format with gofumpt
+make lint   # lint and check formatting, as CI does
+make test   # run the tests with the race detector, as CI does
+make bench  # run the benchmarks
 ```
+
+Code is formatted with [gofumpt](https://github.com/mvdan/gofumpt), a stricter
+gofmt. `make fmt` and `make lint` run it through
+[golangci-lint](https://golangci-lint.run/welcome/install/) v2.15.0, the version
+CI uses, configured in `.golangci.yml`. No separate gofumpt install is needed.
