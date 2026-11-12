@@ -114,7 +114,7 @@ func NewLogger(config Configuration, backend LoggerBackend) (Logger, error) {
 }
 
 func Debug(msg string) {
-	log.Debugf(msg)
+	log.Debug(msg)
 }
 
 func Debugf(format string, args ...interface{}) {
@@ -122,7 +122,7 @@ func Debugf(format string, args ...interface{}) {
 }
 
 func Info(msg string) {
-	log.Infof(msg)
+	log.Info(msg)
 }
 
 func Infof(format string, args ...interface{}) {
@@ -134,7 +134,7 @@ func Infoln(msg string) {
 }
 
 func Warn(msg string) {
-	log.Warnf(msg)
+	log.Warn(msg)
 }
 
 func Warnf(format string, args ...interface{}) {
@@ -142,7 +142,7 @@ func Warnf(format string, args ...interface{}) {
 }
 
 func Error(msg string) {
-	log.Errorf(msg)
+	log.Error(msg)
 }
 
 func Errorf(format string, args ...interface{}) {
@@ -150,7 +150,7 @@ func Errorf(format string, args ...interface{}) {
 }
 
 func Fatal(msg string) {
-	log.Fatalf(msg)
+	log.Fatal(msg)
 }
 
 func Fatalf(format string, args ...interface{}) {

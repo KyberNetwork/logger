@@ -1,0 +1,23 @@
+name: 'CI'
+
+concurrency:
+  group: ci-workflow-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions: write-all
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+  pull_request:
+
+jobs:
+  ci:
+    uses: KyberNetwork/service-framework/.github/workflows/ci.yaml@main
+    with:
+      golangci-lint-version: v2.15.0
+      runs-on: ubuntu-latest
+    secrets: inherit
